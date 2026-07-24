@@ -32,11 +32,10 @@ char buf[BUFSZ];
 void
 copyin(char *s)
 {
-  uint64 addrs[] = {0x80000000LL, 0x3fffffe000, 0x3ffffff000, 0x4000000000,
-                    0xffffffffffffffff};
+  uint32 addrs[] = {TRAPFRAME, TRAMPOLINE, MAXVA, MAXVA + PGSIZE, ~0UL};
 
   for (int ai = 0; ai < sizeof(addrs) / sizeof(addrs[0]); ai++) {
-    uint64 addr = addrs[ai];
+    uint32 addr = addrs[ai];
 
     int fd = open("copyin1", O_CREATE | O_WRONLY);
     if (fd < 0) {
@@ -78,11 +77,10 @@ copyin(char *s)
 void
 copyout(char *s)
 {
-  uint64 addrs[] = {0LL,          0x80000000LL, 0x3fffffe000,
-                    0x3ffffff000, 0x4000000000, 0xffffffffffffffff};
+  uint32 addrs[] = {0, TRAPFRAME, TRAMPOLINE, MAXVA, MAXVA + PGSIZE, ~0UL};
 
   for (int ai = 0; ai < sizeof(addrs) / sizeof(addrs[0]); ai++) {
-    uint64 addr = addrs[ai];
+    uint32 addr = addrs[ai];
 
     int fd = open("README", 0);
     if (fd < 0) {
@@ -121,11 +119,10 @@ copyout(char *s)
 void
 copyinstr1(char *s)
 {
-  uint64 addrs[] = {0x80000000LL, 0x3fffffe000, 0x3ffffff000, 0x4000000000,
-                    0xffffffffffffffff};
+  uint32 addrs[] = {TRAPFRAME, TRAMPOLINE, MAXVA, MAXVA + PGSIZE, ~0UL};
 
   for (int ai = 0; ai < sizeof(addrs) / sizeof(addrs[0]); ai++) {
-    uint64 addr = addrs[ai];
+    uint32 addr = addrs[ai];
 
     int fd = open((char *)addr, O_CREATE | O_WRONLY);
     if (fd >= 0) {
@@ -204,11 +201,11 @@ void
 copyinstr3(char *s)
 {
   sbrk(8192);
-  uint64 top = (uint64)sbrk(0);
+  uint32 top = (uint32)sbrk(0);
   if ((top % PGSIZE) != 0) {
     sbrk(PGSIZE - (top % PGSIZE));
   }
-  top = (uint64)sbrk(0);
+  top = (uint32)sbrk(0);
   if (top % PGSIZE) {
     printf("oops\n");
     exit(1);
@@ -250,9 +247,9 @@ rwsbrk(char *s)
 {
   int fd, n;
 
-  uint64 a = (uint64)sbrk(8192);
+  uint32 a = (uint32)sbrk(8192);
 
-  if (a == (uint64)SBRK_ERROR) {
+  if (a == (uint32)SBRK_ERROR) {
     printf("sbrk(rwsbrk) failed\n");
     exit(1);
   }
@@ -2069,13 +2066,13 @@ sbrkmuch(char *s)
 {
   enum { BIG = 100 * 1024 * 1024 };
   char *c, *oldbrk, *a, *lastaddr, *p;
-  uint64 amt;
+  uint32 amt;
 
   oldbrk = sbrk(0);
 
   // can one grow address space to something big?
   a = sbrk(0);
-  amt = BIG - (uint64)a;
+  amt = BIG - (uint32)a;
   p = sbrk(amt);
   if (p != a) {
     printf("%s: sbrk test failed to grow big address space; enough phys mem?\n",
@@ -2149,7 +2146,7 @@ kernmem(char *s)
 void
 MAXVAplus(char *s)
 {
-  volatile uint64 a = MAXVA;
+  volatile uint32 a = MAXVA;
   for (; a != 0; a <<= 1) {
     int pid;
     pid = fork();
@@ -2191,7 +2188,7 @@ sbrkfail(char *s)
   for (i = 0; i < sizeof(pids) / sizeof(pids[0]); i++) {
     if ((pids[i] = fork()) == 0) {
       // allocate a lot of memory
-      if (sbrk(BIG - (uint64)sbrk(0)) == (char *)SBRK_ERROR)
+      if (sbrk(BIG - (uint32)sbrk(0)) == (char *)SBRK_ERROR)
         write(fds[1], "0", 1);
       else
         write(fds[1], "1", 1);
@@ -2275,7 +2272,7 @@ void
 validatetest(char *s)
 {
   int hi;
-  uint64 p;
+  uint32 p;
 
   hi = 1100 * 1024;
   for (p = 0; p <= (uint)hi; p += PGSIZE) {
@@ -2442,12 +2439,7 @@ nowrite(char *s)
 {
   int pid;
   int xstatus;
-  uint64 addrs[] = {0,
-                    0x80000000LL,
-                    0x3fffffe000,
-                    0x3ffffff000,
-                    0x4000000000,
-                    0xffffffffffffffff};
+  uint32 addrs[] = {0, TRAPFRAME, TRAMPOLINE, MAXVA, ~0UL};
 
   for (int ai = 0; ai < sizeof(addrs) / sizeof(addrs[0]); ai++) {
     pid = fork();
@@ -2472,7 +2464,7 @@ nowrite(char *s)
 // regression test. copyin(), copyout(), and copyinstr() used to cast
 // the virtual page address to uint, which (with certain wild system
 // call arguments) resulted in a kernel page faults.
-void *big = (void *)0xeaeb0b5b00002f5e;
+void *big = (void *)~0UL;
 void
 pgbug(char *s)
 {
@@ -2496,7 +2488,7 @@ sbrkbugs(char *s)
     exit(1);
   }
   if (pid == 0) {
-    int sz = (uint64)sbrk(0);
+    int sz = (uint32)sbrk(0);
     // free all user memory; there used to be a bug that
     // would not adjust p->sz correctly in this case,
     // causing exit() to panic.
@@ -2512,7 +2504,7 @@ sbrkbugs(char *s)
     exit(1);
   }
   if (pid == 0) {
-    int sz = (uint64)sbrk(0);
+    int sz = (uint32)sbrk(0);
     // set the break to somewhere in the very first
     // page; there used to be a bug that would incorrectly
     // free the first page.
@@ -2528,7 +2520,7 @@ sbrkbugs(char *s)
   }
   if (pid == 0) {
     // set the break in the middle of a page.
-    sbrk((10 * PGSIZE + 2048) - (uint64)sbrk(0));
+    sbrk((10 * PGSIZE + 2048) - (uint32)sbrk(0));
 
     // reduce the break a bit, but not enough to
     // cause a page to be freed. this used to cause
@@ -2548,13 +2540,13 @@ sbrkbugs(char *s)
 void
 sbrklast(char *s)
 {
-  uint64 top = (uint64)sbrk(0);
+  uint32 top = (uint32)sbrk(0);
   if ((top % PGSIZE) != 0)
     sbrk(PGSIZE - (top % PGSIZE));
   sbrk(PGSIZE);
   sbrk(10);
   sbrk(-20);
-  top = (uint64)sbrk(0);
+  top = (uint32)sbrk(0);
   char *p = (char *)(top - 64);
   p[0] = 'x';
   p[1] = '\0';
@@ -2675,7 +2667,7 @@ lazy_copy(char *s)
 
   {
     void *xx = sbrk(0);
-    void *ret = sbrk(-(((uint64)xx) + 1));
+    void *ret = sbrk(-(((uint32)xx) + 1));
     if (ret != xx) {
       printf("sbrk(sbrk(0)+1) returned %p, not old sz\n", ret);
       exit(1);
@@ -2684,8 +2676,8 @@ lazy_copy(char *s)
 
   // read() and write() to these addresses should fail.
   unsigned long bad[] = {
-    0x3fffffc000, 0x3fffffd000, 0x3fffffe000,
-    0x3ffffff000, 0x4000000000, 0x8000000000,
+    TRAPFRAME - 2 * PGSIZE, TRAPFRAME - PGSIZE, TRAPFRAME,
+    TRAMPOLINE, MAXVA, ~0UL,
   };
   for (int i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
     int fd = open("README", 0);
@@ -2718,7 +2710,7 @@ lazy_sbrk(char *s)
 {
   // sbrk() takes just int, so take 2^30-sized steps towards MAXVA
   char *p = sbrk(0);
-  while ((uint64)p < MAXVA - (1 << 30)) {
+  while ((uint32)p < MAXVA - (1 << 30)) {
     p = sbrklazy(1 << 30);
     if (p < 0) {
       printf("sbrklazy(%d) returned %p\n", 1 << 30, p);
@@ -2728,7 +2720,7 @@ lazy_sbrk(char *s)
     p = sbrklazy(0);
   }
 
-  int n = TRAPFRAME - PGSIZE - (uint64)p;
+  int n = TRAPFRAME - PGSIZE - (uint32)p;
 
   char *p1 = sbrklazy(n);
   if (p1 < 0 || p1 != p) {
@@ -2737,7 +2729,7 @@ lazy_sbrk(char *s)
   }
 
   p = sbrk(PGSIZE);
-  if (p < 0 || (uint64)p != TRAPFRAME - PGSIZE) {
+  if (p < 0 || (uint32)p != TRAPFRAME - PGSIZE) {
     printf("sbrk(%d) returned %p, not expected TRAPFRAME-PGSIZE\n", PGSIZE, p);
     exit(1);
   }
@@ -2749,13 +2741,13 @@ lazy_sbrk(char *s)
   }
 
   p = sbrk(1);
-  if ((uint64)p != -1) {
+  if ((uint32)p != -1) {
     printf("sbrk(1) returned %p, expected error\n", p);
     exit(1);
   }
 
   p = sbrklazy(1);
-  if ((uint64)p != -1) {
+  if ((uint32)p != -1) {
     printf("sbrklazy(1) returned %p, expected error\n", p);
     exit(1);
   }
@@ -2950,7 +2942,7 @@ badwrite(char *s)
       printf("open junk failed\n");
       exit(1);
     }
-    write(fd, (char *)0xffffffffffL, 1);
+    write(fd, (char *)~0UL, 1);
     close(fd);
     unlink("junk");
   }
@@ -3183,7 +3175,7 @@ int
 countfree()
 {
   int n = 0;
-  uint64 sz0 = (uint64)sbrk(0);
+  uint32 sz0 = (uint32)sbrk(0);
   while (1) {
     char *a = sbrk(PGSIZE);
     if (a == SBRK_ERROR) {
@@ -3191,7 +3183,7 @@ countfree()
     }
     n += 1;
   }
-  sbrk(-((uint64)sbrk(0) - sz0));
+  sbrk(-((uint32)sbrk(0) - sz0));
   return n;
 }
 

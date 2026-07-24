@@ -22,7 +22,7 @@ start()
 
   // set M Exception Program Counter to main, for mret.
   // requires gcc -mcmodel=medany
-  w_mepc((uint64)main);
+  w_mepc((uint32)main);
 
   // disable paging for now.
   w_satp(0);
@@ -34,7 +34,7 @@ start()
 
   // configure Physical Memory Protection to give supervisor mode
   // access to all of physical memory.
-  w_pmpaddr0(0x3fffffffffffffull);
+  w_pmpaddr0(~0UL);
   w_pmpcfg0(0xf);
 
   // enable hardware updates of page table A and D bits

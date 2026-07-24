@@ -237,7 +237,7 @@ log_write(struct buf *b)
   release(&log.lock);
 }
 
-uint64
+uint32
 sys_sync(void)
 {
   acquire(&log.lock);

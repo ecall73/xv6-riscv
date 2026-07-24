@@ -13,11 +13,11 @@ putc(int fd, char c)
 }
 
 static void
-printint(int fd, long long xx, int base, int sgn)
+printint(int fd, long xx, int base, int sgn)
 {
   char buf[20];
   int i, neg;
-  unsigned long long x;
+  unsigned long x;
 
   neg = 0;
   if (sgn && xx < 0) {
@@ -39,13 +39,13 @@ printint(int fd, long long xx, int base, int sgn)
 }
 
 static void
-printptr(int fd, uint64 x)
+printptr(int fd, uint32 x)
 {
   int i;
   putc(fd, '0');
   putc(fd, 'x');
-  for (i = 0; i < (sizeof(uint64) * 2); i++, x <<= 4)
-    putc(fd, digits[x >> (sizeof(uint64) * 8 - 4)]);
+  for (i = 0; i < (sizeof(uint32) * 2); i++, x <<= 4)
+    putc(fd, digits[x >> (sizeof(uint32) * 8 - 4)]);
 }
 
 // Print to the given fd. Only understands %d, %x, %p, %c, %s.
@@ -53,7 +53,7 @@ void
 vprintf(int fd, const char *fmt, va_list ap)
 {
   char *s;
-  int c0, c1, c2, i, state;
+  int c0, c1, i, state;
 
   state = 0;
   for (i = 0; fmt[i]; i++) {
@@ -65,37 +65,26 @@ vprintf(int fd, const char *fmt, va_list ap)
         putc(fd, c0);
       }
     } else if (state == '%') {
-      c1 = c2 = 0;
+      c1 = 0;
       if (c0)
         c1 = fmt[i + 1] & 0xff;
-      if (c1)
-        c2 = fmt[i + 2] & 0xff;
       if (c0 == 'd') {
         printint(fd, va_arg(ap, int), 10, 1);
       } else if (c0 == 'l' && c1 == 'd') {
-        printint(fd, va_arg(ap, uint64), 10, 1);
+        printint(fd, va_arg(ap, long), 10, 1);
         i += 1;
-      } else if (c0 == 'l' && c1 == 'l' && c2 == 'd') {
-        printint(fd, va_arg(ap, uint64), 10, 1);
-        i += 2;
       } else if (c0 == 'u') {
         printint(fd, va_arg(ap, uint32), 10, 0);
       } else if (c0 == 'l' && c1 == 'u') {
-        printint(fd, va_arg(ap, uint64), 10, 0);
+        printint(fd, va_arg(ap, unsigned long), 10, 0);
         i += 1;
-      } else if (c0 == 'l' && c1 == 'l' && c2 == 'u') {
-        printint(fd, va_arg(ap, uint64), 10, 0);
-        i += 2;
       } else if (c0 == 'x') {
         printint(fd, va_arg(ap, uint32), 16, 0);
       } else if (c0 == 'l' && c1 == 'x') {
-        printint(fd, va_arg(ap, uint64), 16, 0);
+        printint(fd, va_arg(ap, unsigned long), 16, 0);
         i += 1;
-      } else if (c0 == 'l' && c1 == 'l' && c2 == 'x') {
-        printint(fd, va_arg(ap, uint64), 16, 0);
-        i += 2;
       } else if (c0 == 'p') {
-        printptr(fd, va_arg(ap, uint64));
+        printptr(fd, va_arg(ap, uint32));
       } else if (c0 == 'c') {
         putc(fd, va_arg(ap, uint32));
       } else if (c0 == 's') {

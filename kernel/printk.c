@@ -26,11 +26,11 @@ static struct {
 static char digits[] = "0123456789abcdef";
 
 static void
-printint(long long xx, int base, int sign)
+printint(long xx, int base, int sign)
 {
   char buf[20];
   int i;
-  unsigned long long x;
+  unsigned long x;
 
   if (sign && (sign = (xx < 0)))
     x = -xx;
@@ -50,13 +50,13 @@ printint(long long xx, int base, int sign)
 }
 
 static void
-printptr(uint64 x)
+printptr(uint32 x)
 {
   int i;
   consputc('0');
   consputc('x');
-  for (i = 0; i < (sizeof(uint64) * 2); i++, x <<= 4)
-    consputc(digits[x >> (sizeof(uint64) * 8 - 4)]);
+  for (i = 0; i < (sizeof(uint32) * 2); i++, x <<= 4)
+    consputc(digits[x >> (sizeof(uint32) * 8 - 4)]);
 }
 
 // Print to the console.
@@ -64,7 +64,7 @@ int
 printk(char *fmt, ...)
 {
   va_list ap;
-  int i, cx, c0, c1, c2;
+  int i, cx, c0, c1;
   char *s;
 
   if (panicking == 0)
@@ -78,37 +78,26 @@ printk(char *fmt, ...)
     }
     i++;
     c0 = fmt[i + 0] & 0xff;
-    c1 = c2 = 0;
+    c1 = 0;
     if (c0)
       c1 = fmt[i + 1] & 0xff;
-    if (c1)
-      c2 = fmt[i + 2] & 0xff;
     if (c0 == 'd') {
       printint(va_arg(ap, int), 10, 1);
     } else if (c0 == 'l' && c1 == 'd') {
-      printint(va_arg(ap, uint64), 10, 1);
+      printint(va_arg(ap, long), 10, 1);
       i += 1;
-    } else if (c0 == 'l' && c1 == 'l' && c2 == 'd') {
-      printint(va_arg(ap, uint64), 10, 1);
-      i += 2;
     } else if (c0 == 'u') {
       printint(va_arg(ap, uint32), 10, 0);
     } else if (c0 == 'l' && c1 == 'u') {
-      printint(va_arg(ap, uint64), 10, 0);
+      printint(va_arg(ap, unsigned long), 10, 0);
       i += 1;
-    } else if (c0 == 'l' && c1 == 'l' && c2 == 'u') {
-      printint(va_arg(ap, uint64), 10, 0);
-      i += 2;
     } else if (c0 == 'x') {
       printint(va_arg(ap, uint32), 16, 0);
     } else if (c0 == 'l' && c1 == 'x') {
-      printint(va_arg(ap, uint64), 16, 0);
+      printint(va_arg(ap, unsigned long), 16, 0);
       i += 1;
-    } else if (c0 == 'l' && c1 == 'l' && c2 == 'x') {
-      printint(va_arg(ap, uint64), 16, 0);
-      i += 2;
     } else if (c0 == 'p') {
-      printptr(va_arg(ap, uint64));
+      printptr(va_arg(ap, uint32));
     } else if (c0 == 'c') {
       consputc(va_arg(ap, uint));
     } else if (c0 == 's') {
