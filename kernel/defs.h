@@ -170,16 +170,14 @@ int             copyinstr(pagetable_t, char *, uint32, uint32);
 int             ismapped(pagetable_t, uint32);
 uint32          vmfault(pagetable_t, uint32, int);
 
-// plic.c
-void            plicinit(void);
-void            plicinithart(void);
-int             plic_claim(void);
-void            plic_complete(int);
-
-// virtio_disk.c
-void            virtio_disk_init(void);
-void            virtio_disk_rw(struct buf *, int);
-void            virtio_disk_intr(void);
+// platform BSP
+void            platform_map(pagetable_t);
+void            platform_init(void);
+void            platform_init_hart(void);
+void            platform_timerintr(void);
+int             platform_devintr(void);
+void            disk_init(void);
+void            disk_rw(struct buf *, int);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x) / sizeof((x)[0]))

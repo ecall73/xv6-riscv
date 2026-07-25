@@ -1,0 +1,10 @@
+#ifndef XV6_BSP_NEMU_PLATFORM_H
+#define XV6_BSP_NEMU_PLATFORM_H
+
+#define UART0 0xa00003f8L
+#define KBD0  0xa0000060L
+
+#define KERNBASE 0x80000000L
+#define PHYSTOP  (KERNBASE + 128 * 1024 * 1024)
+
+#endif

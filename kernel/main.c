@@ -22,12 +22,12 @@ main()
     procinit();         // process table
     trapinit();         // trap vectors
     trapinithart();     // install kernel trap vector
-    plicinit();         // set up interrupt controller
-    plicinithart();     // ask PLIC for device interrupts
+    platform_init();      // set up platform devices
+    platform_init_hart(); // set up per-hart platform state
     binit();            // buffer cache
     iinit();            // inode table
     fileinit();         // file table
-    virtio_disk_init(); // emulated hard disk
+    disk_init();        // platform block device
     userinit();         // first user process
     __atomic_thread_fence(__ATOMIC_SEQ_CST);
     started = 1;
@@ -38,7 +38,7 @@ main()
     printk("hart %d starting\n", cpuid());
     kvminithart();  // turn on paging
     trapinithart(); // install kernel trap vector
-    plicinithart(); // ask PLIC for device interrupts
+    platform_init_hart(); // set up per-hart platform state
   }
 
   scheduler();

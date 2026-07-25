@@ -1,12 +1,23 @@
 K=kernel
 U=user
+ARCH ?= riscv32-qemu
+BSP := $(lastword $(subst -, ,$(ARCH)))
+BSP_DIR := bsp/$(BSP)
+BSP_MK := $(BSP_DIR)/platform.mk
 
-OBJS = \
+ifeq ($(wildcard $(BSP_MK)),)
+  $(error Unsupported ARCH=$(ARCH): missing $(BSP_MK))
+endif
+
+include $(BSP_MK)
+
+.DEFAULT_GOAL := $K/kernel
+
+CORE_OBJS = \
   $K/entry.o \
   $K/start.o \
   $K/console.o \
   $K/printk.o \
-  $K/uart.o \
   $K/kalloc.o \
   $K/spinlock.o \
   $K/string.o \
@@ -26,9 +37,9 @@ OBJS = \
   $K/pipe.o \
   $K/exec.o \
   $K/sysfile.o \
-  $K/kernelvec.o \
-  $K/plic.o \
-  $K/virtio_disk.o
+  $K/kernelvec.o
+
+OBJS = $(CORE_OBJS) $(BSP_OBJS)
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -52,16 +63,13 @@ TOOLPREFIX := $(shell if riscv64-linux-gnu-objdump -i 2>&1 | grep 'elf64-big' >/
 	echo "***" 1>&2; exit 1; fi)
 endif
 
-QEMU = qemu-system-riscv32
-MIN_QEMU_VERSION = 7.2
-
 CC = $(TOOLPREFIX)gcc
 LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
 CFLAGS = -Wall -Werror -Wno-unknown-attributes -O -fno-omit-frame-pointer -ggdb -gdwarf-2
-CFLAGS += -march=rv32imac -mabi=ilp32
+CFLAGS += $(ARCH_CFLAGS)
 CFLAGS += -std=gnu99
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
@@ -73,7 +81,7 @@ CFLAGS += -fno-builtin-strchr -fno-builtin-exit -fno-builtin-malloc -fno-builtin
 CFLAGS += -fno-builtin-free
 CFLAGS += -fno-builtin-memcpy -Wno-main
 CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
-CFLAGS += -I.
+CFLAGS += -I. -Ikernel -I$(BSP_DIR)
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
 # Disable PIE when possible (for Ubuntu 16.10 toolchain)
@@ -85,19 +93,45 @@ CFLAGS += -fno-pie -nopie
 endif
 
 LDFLAGS = -melf32lriscv -z max-page-size=4096
+KERNEL_LDSCRIPT ?= $K/kernel.ld
 
-$K/kernel: $(OBJS) $K/kernel.ld
-	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) 
+# Object names are shared between platforms and ABIs. Change this stamp before
+# make checks their timestamps so stale objects cannot cross an ARCH switch.
+ARCH_STAMP = build/.arch
+
+$(ARCH_STAMP): FORCE
+	@mkdir -p $(@D)
+	@old=; test ! -f $@ || read old < $@; \
+	if [ "$$old" != "$(ARCH) $(ARCH_CFLAGS)" ]; then \
+		echo "$(ARCH) $(ARCH_CFLAGS)" > $@; \
+	fi
+
+$(OBJS): $(ARCH_STAMP)
+
+$K/kernel: $(OBJS) $(KERNEL_LDSCRIPT)
+	$(LD) $(LDFLAGS) -T $(KERNEL_LDSCRIPT) -o $K/kernel $(OBJS)
 	$(OBJDUMP) -S $K/kernel > $K/kernel.asm
 	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
 
 $K/%.o: $K/%.S
-	$(CC) -march=rv32imac -mabi=ilp32 -g -c -o $@ $<
+	$(CC) $(ARCH_CFLAGS) -I. -Ikernel -I$(BSP_DIR) -g -c -o $@ $<
+
+bsp/%.o: bsp/%.S
+	$(CC) $(ARCH_CFLAGS) -I. -Ikernel -I$(BSP_DIR) -g -c -o $@ $<
+
+$U/%.o: $U/%.c $(ARCH_STAMP)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+bsp/common/fsimg.o: fs.img
+
+FORCE:
 
 tags: $(OBJS)
-	etags kernel/*.S kernel/*.c
+	etags kernel/*.S kernel/*.c bsp/*/*.[cS]
 
 ULIB = $U/ulib.o $U/usys.o $U/printf.o $U/umalloc.o
+
+$(ULIB): $(ARCH_STAMP)
 
 _%: %.o $(ULIB) $U/user.ld
 	$(LD) $(LDFLAGS) -T $U/user.ld -o $@ $< $(ULIB)
@@ -150,51 +184,27 @@ UPROGS=\
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
 
--include kernel/*.d user/*.d
+-include kernel/*.d user/*.d bsp/*/*.d
 
 clean: 
 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
 	*/*.o */*.d */*.asm */*.sym \
+	bsp/*/*.o bsp/*/*.d \
 	$K/kernel fs.img \
 	mkfs/mkfs .gdbinit \
         $U/usys.S \
 	$(UPROGS)
+	rm -rf build
 
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
-# QEMU's gdb stub command line changed in 0.11
-QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
-	then echo "-gdb tcp::$(GDBPORT)"; \
-	else echo "-s -p $(GDBPORT)"; fi)
-ifndef CPUS
-CPUS := 3
-endif
-
-QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic
-QEMUOPTS += -global virtio-mmio.force-legacy=false
-QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0
-QEMUOPTS += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
-
-qemu: check-qemu-version $K/kernel fs.img
-	$(QEMU) $(QEMUOPTS)
 
 .gdbinit: .gdbinit.tmpl-riscv
 	sed "s/:1234/:$(GDBPORT)/" < $^ > $@
 
-qemu-gdb: $K/kernel .gdbinit fs.img
-	@echo "*** Now run 'gdb' in another window." 1>&2
-	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
-
 print-gdbport:
 	@echo $(GDBPORT)
 
-QEMU_VERSION := $(shell $(QEMU) --version | head -n 1 | sed -E 's/^QEMU emulator version ([0-9]+\.[0-9]+)\..*/\1/')
-check-qemu-version:
-	@if [ "$(shell echo "$(QEMU_VERSION) >= $(MIN_QEMU_VERSION)" | bc)" -eq 0 ]; then \
-		echo "ERROR: Need qemu version >= $(MIN_QEMU_VERSION)"; \
-		exit 1; \
-	fi
-
-.PHONY: fmt
+.PHONY: FORCE fmt
 fmt:
-	clang-format -i $(wildcard kernel/*.[ch] user/*.[ch] mkfs/*.c)
+	clang-format -i $(wildcard kernel/*.[ch] user/*.[ch] mkfs/*.c bsp/*/*.[ch])

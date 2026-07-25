@@ -173,6 +173,8 @@ clockintr()
     release(&tickslock);
   }
 
+  platform_timerintr();
+
   // ask for the next timer interrupt. this also clears
   // the interrupt request. 1000000 is about a tenth
   // of a second.
@@ -190,26 +192,7 @@ devintr()
   uint32 scause = r_scause();
 
   if (scause == 0x80000009L) {
-    // this is a supervisor external interrupt, via PLIC.
-
-    // irq indicates which device interrupted.
-    int irq = plic_claim();
-
-    if (irq == UART0_IRQ) {
-      uartintr();
-    } else if (irq == VIRTIO0_IRQ) {
-      virtio_disk_intr();
-    } else if (irq) {
-      printk("unexpected interrupt irq=%d\n", irq);
-    }
-
-    // the PLIC allows each device to raise at most one
-    // interrupt at a time; tell the PLIC the device is
-    // now allowed to interrupt again.
-    if (irq)
-      plic_complete(irq);
-
-    return 1;
+    return platform_devintr();
   } else if (scause == 0x80000005L) {
     // timer interrupt.
     clockintr();

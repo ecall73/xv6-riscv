@@ -1,0 +1,9 @@
+#ifndef XV6_BSP_NPC_PLATFORM_H
+#define XV6_BSP_NPC_PLATFORM_H
+
+#define UART0 0x10000000L
+
+#define KERNBASE 0x80000000L
+#define PHYSTOP  (KERNBASE + 128 * 1024 * 1024)
+
+#endif

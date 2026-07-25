@@ -59,7 +59,7 @@ static struct disk {
 } disk;
 
 void
-virtio_disk_init(void)
+disk_init(void)
 {
   uint32 status = 0;
 
@@ -212,7 +212,7 @@ alloc3_desc(int *idx)
 }
 
 void
-virtio_disk_rw(struct buf *b, int write)
+disk_rw(struct buf *b, int write)
 {
   uint64 sector = b->blockno * (BSIZE / 512);
 
