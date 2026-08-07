@@ -32,10 +32,9 @@ start()
   w_mideleg(0xffff);
   w_sie(r_sie() | SIE_SEIE | SIE_STIE);
 
-  // configure Physical Memory Protection to give supervisor mode
-  // access to all of physical memory.
-  w_pmpaddr0(~0UL);
-  w_pmpcfg0(0xf);
+  // This xv6 port targets CPUs without PMP.
+  // w_pmpaddr0(~0UL);
+  // w_pmpcfg0(0xf);
 
   // enable hardware updates of page table A and D bits
   w_menvcfg(r_menvcfg() | MENVCFG_ADUE);
