@@ -28,7 +28,8 @@ endif
 
 image: kernel/kernel
 	@mkdir -p $(NPC_BUILD_DIR)
-	$(OBJCOPY) -S -O binary $< $(NPC_IMAGE)
+	$(OBJCOPY) --set-section-flags .bss=alloc,load,contents \
+		-S -O binary $< $(NPC_IMAGE)
 
 run: image
 	$(MAKE) -C $(NPC_HOME) SIM_MODE=npc sim \

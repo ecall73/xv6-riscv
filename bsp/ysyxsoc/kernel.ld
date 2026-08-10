@@ -46,6 +46,7 @@ SECTIONS
     . = ALIGN(16);
     *(.srodata .srodata.*)
     *(.rodata .rodata.*)
+    *(.eh_frame .eh_frame.*)
     . = ALIGN(16);
     *(.sdata .sdata.*)
     *(.data .data.*)
