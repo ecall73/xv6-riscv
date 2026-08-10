@@ -215,7 +215,6 @@ w_stimecmp(uint64 x)
 // Machine Environment Configuration Register
 
 #define MENVCFG_STCE (1UL << 31)
-#define MENVCFG_ADUE (1UL << 29)
 
 static inline uint32
 r_menvcfg()
@@ -391,6 +390,8 @@ typedef uint32 *pagetable_t; // 1024 PTEs
 #define PTE_W (1L << 2)
 #define PTE_X (1L << 3)
 #define PTE_U (1L << 4) // user can access
+#define PTE_A (1L << 6) // accessed
+#define PTE_D (1L << 7) // dirty
 
 // shift a physical address to the right place for a PTE.
 #define PA2PTE(pa) ((((uint32)pa) >> 12) << 10)

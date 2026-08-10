@@ -153,7 +153,8 @@ mappages(pagetable_t pagetable, uint32 va, uint32 size, uint32 pa, int perm)
       return -1;
     if (*pte & PTE_V)
       panic("mappages: remap");
-    *pte = PA2PTE(pa) | perm | PTE_V;
+    *pte = PA2PTE(pa) | perm | PTE_V | PTE_A |
+           ((perm & PTE_W) ? PTE_D : 0);
     if (a == last)
       break;
     a += PGSIZE;
